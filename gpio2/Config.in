@@ -1,0 +1,4 @@
+config BR2_PACKAGE_GPIO2
+bool gpio2
+help
+	driver gpio2
