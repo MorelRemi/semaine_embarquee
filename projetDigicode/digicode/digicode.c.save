@@ -1,0 +1,100 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/gpio.h>
+#include <linux/interrupt.h>
+#include <linux/init.h>
+
+static struct gpio gpTab[] = {
+	{1,GPIOF_IN,"COLONNE_1"},
+	{2,GPIOF_OUT_INIT_LOW,"LIGNE_1"}
+};
+
+static bool led=0;
+static unsigned int irqNumber[] = {0,0,0,0};
+static irq_handler_t digihandler(unsigned int irq, void* dev_id, struct pt_regs *regs);
+
+static int __init fonctionInit(void){
+	int returnCode;
+
+	//réservation des GPIO
+	returnCode = gpio_request_array(gpTab,ARRAY_SIZE(gpTab));
+	if(returnCode != 0){
+		printk(KERN_INFO"Error allocate GPIO\n");
+		gpio_free_array(gpTab,ARRAY_SIZE(gpTab));
+	}
+
+	//config GPIO leds en éteinte
+	returnCode = gpio_direction_output(gpTab[0].gpio,1);
+	if(returnCode != 0){
+		printk(KERN_INFO"Error init green led\n");
+	}
+	returnCode = gpio_direction_output(gpTab[1].gpio,1);
+	if(returnCode != 0){
+		printk(KERN_INFO"Error init red led\n");
+	}
+
+	int i,result;
+        for(i = 2; i<6; i++){
+                returnCode = gpio_direction_input(gpTab[i].gpio);
+                if(returnCode != 0){
+                        printk(KERN_INFO"Error init GPIO button 2\n");
+                }
+                gpio_set_debounce(gpTab[i].gpio, 200);
+                irqNumber[i-2] = gpio_to_irq(gpTab[i].gpio);
+
+		result = request_irq(irqNumber[i-1],(irq_handler_t) digihandler, IRQF_TRIGGER_RISING, "digihandler", NULL);
+        }
+
+
+		int j;
+		for(j=6;j<9;j++){
+			returnCode = gpio_direction_output(gpTab[j].gpio,1);
+		}
+
+	return result;
+}
+
+static void __exit fonctionExit(void){
+	int k;
+	for(k=0;k<4;k++){
+		free_irq(irqNumber[k],NULL);
+	}
+	gpio_free_array(gpTab,ARRAY_SIZE(gpTab));
+}
+
+static irq_handler_t digihandler(unsigned int irq, void* dev_id, struct pt_regs *regs){
+	printk(KERN_INFO"Entry in handler\n");
+	int gp,k;
+	for(k=0;k<4;k++){
+		if(irq == irqNumber[k]){
+			break;
+		}
+	}
+	gp = k+4;
+	switch(gp){
+	case 4:
+		printk("LIGNE 1\n");
+		break;
+	case 5:
+		printk("LIGNE 2\n");
+		break;
+	case 6:
+                printk("LIGNE 3\n");
+                break;
+	case 7:
+                printk("LIGNE 4\n");
+                break;
+	default:
+		printk("ERROR CASE\n");
+		break;
+	}
+
+	return (irq_handler_t) IRQ_HANDLED;
+}
+
+module_init(fonctionInit);
+module_exit(fonctionExit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Pierre Maeckereel & Rémi Morel");
+MODULE_DESCRIPTION("Test Digicode");

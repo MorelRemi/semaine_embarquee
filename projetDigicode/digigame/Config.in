@@ -1,0 +1,4 @@
+config BR2_PACKAGE_DIGIGAME
+	bool digigame
+		help
+			technologie avancee

@@ -1,0 +1,208 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/gpio.h>
+#include <linux/interrupt.h>
+#include <linux/init.h>
+#include <linux/sched.h>
+#include <linux/delay.h>
+
+//Tableau des gpios utilisées pour le KeyPad
+static struct gpio gpTab[] = {
+	{1, GPIOF_OUT_INIT_LOW, "COLONNE 2"},
+	{2, GPIOF_IN, "LIGNE 1"},
+	{4, GPIOF_OUT_INIT_LOW, "COLONNE 1"},
+	{5, GPIOF_IN, "LIGNE 4"},
+	{6, GPIOF_OUT_INIT_LOW, "COLONNE 3"},
+	{7, GPIOF_IN, "LIGNE 3 "},
+	{16, GPIOF_IN, "LIGNE 2"}
+};
+
+static unsigned int irqNumber[] = {0,0,0,0};
+static unsigned int irqLigne;
+static bool tasklet_bool = 0;
+
+//Déclaration du handler d'interruption pour l'action d'une touche
+static irq_handler_t digihandler(unsigned int irq, void* dev_id, struct pt_regs *regs);
+
+//Déclaration de la tasklet pour gestion des touches
+static void tasklet_getKey_function(unsigned long);
+static DECLARE_TASKLET(tasklet_getKey, tasklet_getKey_function, 0);
+
+/**
+	Fonction Tasklet pour détermination de la touche du KeyPad
+**/
+static void tasklet_getKey_function(unsigned long data){
+	int k, gpl, returnCode;
+
+	
+	//Détermination de la ligne activée grâce à la GPIO (récupération via l'IRQ)
+	gpl = 0;
+        for(k=0;k<4;k++){
+                if(irqNumber[k] == irqLigne){
+                        switch(k){
+                        case 0:
+                                gpl = gpTab[1].gpio;
+                                printk(KERN_INFO"==> Ligne 1\n");
+                                break;
+                        case 1:
+                                gpl = gpTab[3].gpio;
+                                printk(KERN_INFO"==> Ligne 4\n");
+                                break;
+                        case 2:
+                                gpl = gpTab[5].gpio;
+                                printk(KERN_INFO"==> Ligne 3\n");
+                                break;
+                        case 3:
+                                gpl = gpTab[6].gpio;
+                                printk(KERN_INFO"==> Ligne 2\n");
+                                break;
+                        default:
+                                printk(KERN_INFO"Erreur détermination ligne");
+                        }
+                        break;
+                }
+        }
+
+	//Détermination de la colonne activée
+	//On passe à 0 les colonnes une par une jusqu'à ce que la GPIO ayant déclenchée le handler passe à 0
+	//On a alors la colonne où la touche a été activée
+        returnCode = gpio_direction_output(gpTab[2].gpio, 0);
+        if(gpio_get_value(gpl) == 0){
+                printk(KERN_INFO "Colonne 1\n");
+        }else{
+                returnCode = gpio_direction_output(gpTab[0].gpio, 0);
+                if(gpio_get_value(gpl) == 0){
+                        printk(KERN_INFO "Colonne 2 \n");
+                }else{
+                        printk(KERN_INFO "Colonne 3 \n");
+                }
+        }
+
+	disable_irq(irqation des colonnes pour un retour au comportement normal d'avant interruption
+        returnCode = gpio_direction_output(gpTab[0].gpio, 1);
+        returnCode = gpio_direction_output(gpTab[2].gpio, 1);
+        returnCode = gpio_direction_output(gpTab[4].gpio, 1);
+
+	enable_irq(irqLigne);
+}
+
+/**
+	Fonction d'Init du module Noyau
+**/
+static int __init fonctionInit(void){
+	int returnCode,result;
+
+	//réservation des GPIO
+	returnCode = gpio_request_array(gpTab,ARRAY_SIZE(gpTab));
+	if(returnCode != 0){
+		printk(KERN_INFO"Error allocate GPIO\n");
+		gpio_free_array(gpTab,ARRAY_SIZE(gpTab));
+	}
+
+	//Initialisation des GPIOs correspondant aux lignes en les passant à 1 : envoi de courant
+	returnCode = gpio_direction_output(gpTab[0].gpio, 1);
+	returnCode = gpio_direction_output(gpTab[2].gpio, 1);
+	returnCode = gpio_direction_output(gpTab[4].gpio, 1);
+
+	//Initialisation des GPIOs correspondant des lignes : réception
+	returnCode = gpio_direction_input(gpTab[1].gpio);
+	returnCode = gpio_direction_input(gpTab[3].gpio);
+	returnCode = gpio_direction_input(gpTab[5].gpio);
+	returnCode = gpio_direction_input(gpTab[6].gpio);
+
+	//Ajout d'un délai avant réactivation du bouton (ne fonctionne pas)
+	gpio_set_debounce(gpTab[1].gpio, 2000);
+	gpio_set_debounce(gpTab[3].gpio, 2000);
+	gpio_set_debounce(gpTab[5].gpio, 2000);
+	gpio_set_debounce(gpTab[6].gpio, 2000);
+
+	//Liaison de chaque GPIO de ligne avec un IRQ, puis liaison de l'IRQ avec le handler d'interruption
+	irqNumber[0] = gpio_to_irq(gpTab[1].gpio);
+	result = request_irq(irqNumber[0], (irq_handler_t) digihandler, IRQF_TRIGGER_RISING, "digihandler", NULL);
+	irqNumber[1] = gpio_to_irq(gpTab[3].gpio);
+	result = request_irq(irqNumber[1], (irq_handler_t) digihandler, IRQF_TRIGGER_RISING, "digihandler", NULL);
+	irqNumber[2] = gpio_to_irq(gpTab[5].gpio);
+	result = request_irq(irqNumber[2], (irq_handler_t) digihandler, IRQF_TRIGGER_RISING, "digihandler", NULL);
+	irqNumber[3] = gpio_to_irq(gpTab[6].gpio);
+	result = request_irq(irqNumber[3], (irq_handler_t) digihandler, IRQF_TRIGGER_RISING, "digihandler", NULL);
+
+	return result;
+}
+
+/**
+	Fonction Exit du module Noyau
+**/
+static void __exit fonctionExit(void){
+	int i;
+	gpio_direction_output(gpTab[1].gpio, 0);
+	for(i=0;i<4;i++){
+		free_irq(irqNumber[i],NULL);
+	}
+	gpio_free_array(gpTab,ARRAY_SIZE(gpTab));
+}
+
+/**
+	Handler des interruptions générées par l'appuie sur les touches (réception d'un signal sur les GPIO connectées aux lignes du KeyPad
+**/
+static irq_handler_t digihandler(unsigned int irq, void* dev_id, struct pt_regs *regs){
+	/*int k, gpl, returnCode, result, disable, enable;
+	gpl = 0;
+	printk(KERN_INFO"Entry in handler\n");
+	printk(KERN_INFO"Détermination Ligne\n");
+	for(k=0;k<4;k++){
+		if(irqNumber[k] == irq){
+			switch(k){
+			case 0:
+				gpl = gpTab[1].gpio;
+				printk(KERN_INFO"==> Ligne 1\n");
+				break;
+			case 1:
+				gpl = gpTab[3].gpio;
+				printk(KERN_INFO"==> Ligne 4\n");
+				break;
+			case 2:
+				gpl = gpTab[5].gpio;
+				printk(KERN_INFO"==> Ligne 3\n");
+				break;
+			case 3:
+				gpl = gpTab[6].gpio;
+				printk(KERN_INFO"==> Ligne 2\n");
+				break;
+			default:
+				printk(KERN_INFO"Erreur détermination ligne");
+			}
+			break;
+		}
+	}
+
+	returnCode = gpio_direction_output(gpTab[2].gpio, 0);
+	if(gpio_get_value(gpl) == 0){
+		printk(KERN_INFO "Colonne 1\n");
+	}else{
+		returnCode = gpio_direction_output(gpTab[0].gpio, 0);
+		if(gpio_get_value(gpl) == 0){
+			printk(KERN_INFO "Colonne 2 \n");
+		}else{
+			printk(KERN_INFO "Colonne 3 \n");
+		}
+	}
+	disable_irq(irqNumber[gpl]);
+	returnCode = gpio_direction_output(gpTab[0].gpio, 1);
+	returnCode = gpio_direction_output(gpTab[2].gpio, 1);
+	returnCode = gpio_direction_output(gpTab[4].gpio, 1);
+	enable_irq(irqNumber[gpl]);
+	return (irq_handler_t) IRQ_HANDLED;*/
+
+	printk(KERN_INFO"Interrupt handler entry\n");
+	irqLigne = irq;
+	tasklet_schedule(&tasklet_getKey);
+	printk(KERN_INFO "tasklet schedule \n");
+	return (irq_handler_t) IRQ_HANDLED;
+}
+
+module_init(fonctionInit);
+module_exit(fonctionExit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Pierre Maeckereel & Rémi Morel");
+MODULE_DESCRIPTION("Test Digicode");

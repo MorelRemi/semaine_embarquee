@@ -1,0 +1,17 @@
+DIGICODE_VERSION = 1.0
+DIGICODE_SITE = $(TOPDIR)/package/digicode
+DIGICODE_SITE_METHOD = local
+DIGICODE_LICENSE = GPLv3+
+
+DIGICODE_DEPENDENCIES = linux
+
+define DIGICODE_BUILD_CMDS
+$(MAKE) -C $(LINUX_DIR) $(LINUX_MAKE_FLAGS) M=$(@D)
+endef
+
+define DIGICODE_INSTALL_TARGET_CMDS
+$(MAKE) -C $(LINUX_DIR) $(LINUX_MAKE_FLAGS) M=$(@D) modules_install
+endef
+
+$(eval $(generic-package))
+
