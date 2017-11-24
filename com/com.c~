@@ -5,17 +5,6 @@
 #include <asm/uaccess.h>
 #include <linux/miscdevice.h>
 
-/**
-*
-* Programme noyau linux utilisateur.
-* Il permet de communiquer avec l'utilisateur : 
-* il affiche des informations quand on le lance, quand on écrit
-* dans le fichier virtuel associé, quand on lit dedans,
-* et quand on quitte le module.
-*
-*/
-
-// Prototypes des fonctions opérations sur le fichier virtuel
 static int dev_open(struct inode *inod, struct file *fil);
 static ssize_t dev_read(struct file *fil, char *buff, size_t len, loff_t *off);
 static ssize_t dev_write(struct file *fil, const char *buff, size_t len, loff_t *off);
@@ -27,7 +16,6 @@ struct miscdevice com;
 int hello_start(void);
 void hello_end(void);
 
-// affectation des opérations fichiers aux méthodes associées 
 static struct file_operations fops = {
 	.read=dev_read,
 	.write=dev_write,
@@ -36,7 +24,6 @@ static struct file_operations fops = {
 	.release=dev_rls
 };
 
-// On affiche "Démarrage de folie " au lancement du module
 int hello_start() {
 	com.name = "com";
 	com.minor = MISC_DYNAMIC_MINOR;
@@ -47,28 +34,21 @@ int hello_start() {
 	return 0;
 }
 
-// On affiche "A la prochaine" quand on quitte le module
 void hello_end() {
 	printk(KERN_INFO "A la prochaine \n");
 	misc_deregister(&com);
 }
 
-// On affiche "Alerte fermeture !!" quand on ferme le fichier virtuel
 static int dev_rls(struct inode *inod, struct file *fil) {
 	printk(KERN_ALERT "Alerte fermeture !! \n");
 	return 0;
 }
 
-// On affiche "Alerte ouverture !!" quand on ouvre le fichier virtuel
 static int dev_open(struct inode *inod, struct file *fil) {
 	printk(KERN_ALERT "Alerte ouverture !! \n");
 	return 0;
 }
 
-/* 
- * On affiche "Alerte lecture !!" quand on lit le fichier virtuel.
- * On envoie à l'utilisateur le contenu du buffer du fichier virtuel.
- */
 static ssize_t dev_read(struct file *fil, char *buff, size_t len, loff_t *off) {
 	char buf[11] = "Lecture \n";
 	int dummy, readPos = strlen(buf);
@@ -77,10 +57,6 @@ static ssize_t dev_read(struct file *fil, char *buff, size_t len, loff_t *off) {
 	return readPos;
 }
 
-/*
- * On affiche "Alerte écriture !!" quand on écrit dans le fichier virtuel.
- * On récupère le contenu du buffer et on l'affiche dans la console.
- */
 static ssize_t dev_write(struct file *fil, const char *buff, size_t len, loff_t *off) {
 	int dummy, mylen;
 	char buf[15] = "Ecriture";

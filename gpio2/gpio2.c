@@ -3,6 +3,17 @@
 #include <linux/gpio.h>
 #define GPIO2 2
 
+/**
+ *
+ * Programme noyau Linux qui va tester une GPIO en sortie.
+ * Au démarrage du module avec modprobe GPIO2, on envoie un courant dans 
+ * la GPIO 2 (Pin 11).
+ *
+ * Lors de l'arret du module avec rmmod GPIO2, on désactive
+ * le courant dans cette GPIO
+ *
+ */
+
 static int __init fonctionInit(void)
 {
 	int retour1 = gpio_request(GPIO2,"test Pin 11 GPIO");
