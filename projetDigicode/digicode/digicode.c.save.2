@@ -77,7 +77,7 @@ static char keypad[4][3] = {
 };
 
 // une irq pour chaque GPIO d'entrée
-static int irqNumbers[4] = {0,0,0,0};
+static int irqNumbers[4];
 int ligne, colonne;
 
 /**
@@ -118,7 +118,7 @@ static irq_handler_t handler_wake_user(unsigned int irq, void* dev_id, struct pt
 * @return : code d'erreur à tester
 */
 static int __init fonctionInit(void){
-	int returnCode,j;
+	int returnCode;
 	digicode.name = "digicode";
 	digicode.minor = MISC_DYNAMIC_MINOR;
 	digicode.fops = &fops;
@@ -126,57 +126,31 @@ static int __init fonctionInit(void){
 
         // réservation des GPIO
         returnCode = gpio_request_array(gpTab,ARRAY_SIZE(gpTab));
+
   	// test du code de retour
         if(returnCode != 0){
                 printk(KERN_INFO"Error allocate GPIO\n");
-		goto errorAllocate;
+                gpio_free_array(gpTab,ARRAY_SIZE(gpTab));
         }
 
 	printk(KERN_INFO "Démarrage de folie \n");
 
 	/* association de chaque GPIO d'entrée avec un irq
-	*  cet irq est stocké dans le tableau irqNumber
+	*  cet irq est stocké dans le tableau irqNumber	
 	*/
 	irqNumbers[0] = gpio_to_irq(gpTab[1].gpio);
 	returnCode = request_irq(irqNumbers[0],(irq_handler_t)handler_wake_user,IRQF_TRIGGER_RISING,"handler_wake_user",NULL);
-	if(returnCode != 0){
-		printk(KERN_INFO"Error request IRQ\n");
-                goto errorRequestIrq;
-	}
-
 
 	irqNumbers[1] = gpio_to_irq(gpTab[3].gpio);
         returnCode = request_irq(irqNumbers[1],(irq_handler_t)handler_wake_user,IRQF_TRIGGER_RISING,"handler_wake_user",NULL);
-	if(returnCode != 0){
-		printk(KERN_INFO"Error request IRQ\n");
-		goto errorRequestIrq;
-	}
 
 	irqNumbers[2] = gpio_to_irq(gpTab[5].gpio);
         returnCode = request_irq(irqNumbers[2],(irq_handler_t)handler_wake_user,IRQF_TRIGGER_RISING,"handler_wake_user",NULL);
-	if(returnCode != 0){
-		printk(KERN_INFO"Error request IRQ\n");
-                goto errorRequestIrq;
-	}
 
 	irqNumbers[3] = gpio_to_irq(gpTab[6].gpio);
         returnCode = request_irq(irqNumbers[3],(irq_handler_t)handler_wake_user,IRQF_TRIGGER_RISING,"handler_wake_user",NULL);
-	if(returnCode != 0){
-		printk(KERN_INFO"Error request IRQ\n");
-                goto errorRequestIrq;
-	}
 
 	return 0;
-
-	//Gestion des codes d'erreurs
-	errorRequestIrq:
-		for(j=0;j<4;j++){
-			free_irq(irqNumbers[j],NULL);
-		}
-	errorAllocate:
-		gpio_free_array(gpTab,ARRAY_SIZE(gpTab));
-
-	return 1;
 }
 
 /**
@@ -184,12 +158,7 @@ static int __init fonctionInit(void){
 * on désalloue les GPIO
 **/
 static void __exit fonctionExit(void){
-	int i;
-
 	gpio_free_array(gpTab,ARRAY_SIZE(gpTab));
-	for(i=0;i<4;i++){
-		free_irq(irqNumbers[i],NULL);
-	}
 	misc_deregister(&digicode);
 }
 
@@ -232,7 +201,7 @@ static int dev_open(struct inode *inod, struct file *fil) {
 *
 */
 static ssize_t dev_read(struct file *fil, char *buff, size_t len, loff_t *off) {
-	int dummy,i;
+	int returnCode,i;
 	// on désactive le courant sur les colonnes
 	gpio_direction_output(gpTab[0].gpio,0);
 	gpio_direction_output(gpTab[2].gpio,0);
@@ -275,8 +244,8 @@ static ssize_t dev_read(struct file *fil, char *buff, size_t len, loff_t *off) {
                         }
                 }
         }
-
-
+	
+	int dummy;
 	gpio_direction_output(gpTab[i].gpio,0);
         if((ligne == -1) || (colonne == -1)){
                 printk(KERN_INFO"Aucune touche appuyée\n");
