@@ -17,6 +17,11 @@
 static int __init fonctionInit(void)
 {
 	int retour1 = gpio_request(GPIO2,"test Pin 11 GPIO");
+	if(retour1 > 0){
+		printk(KERN_INFO"Error request GPIO 11\n");
+		gpio_free(GPIO2);
+		return 1;
+	}
 	retour1 = gpio_direction_output(GPIO2,1);
 	return 0;
 }

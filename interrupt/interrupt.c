@@ -33,6 +33,7 @@ static irq_handler_t ledchange_irq_handler(unsigned int irq, void* dev_id, struc
 static int __init fonctionInit(void)
 {
   // allocation mémoire des GPIO
+	int result;
 	int ret = gpio_request_array(leds,ARRAY_SIZE(leds));
 	if(ret > 0){
 		printk(KERN_INFO"Error request gpio array\n");
@@ -47,14 +48,19 @@ static int __init fonctionInit(void)
 	printk(KERN_INFO"Init button\n");
 	ret = gpio_direction_input(leds[3].gpio);
 	gpio_set_debounce(leds[3].gpio, 200);
-	
+
 	// Affectation d'un irq à la GPIO d'entrée
 	irqNumber = gpio_to_irq(leds[3].gpio);
 	printk(KERN_INFO"Button mapped to IRQ\n");
 
 	// Affectation de l'interruption à l'irq
-	int result = request_irq(irqNumber,(irq_handler_t) ledchange_irq_handler, IRQF_TRIGGER_RISING, "ledchange_irq_handler", NULL);
-	
+	result = request_irq(irqNumber,(irq_handler_t) ledchange_irq_handler, IRQF_TRIGGER_RISING, "ledchange_irq_handler", NULL);
+	if(result > 0){
+		printk(KERN_INFO"Error request IRQ \n");
+		free_irq(irqNumber, NULL);
+        	gpio_free_array(leds,ARRAY_SIZE(leds));
+	}
+
 	printk(KERN_INFO"The interrupt request result is : %d\n", result);
 	return result;
 }
