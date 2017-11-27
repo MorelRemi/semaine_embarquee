@@ -8,3 +8,4 @@ Dépôt contenant les différentes sources de développement pour la semaine emb
 - projetDigicode : Projet de jeu sur la base d'un digicode
 
 Vous pourrez trouver aussi dans le dépôt la documentation du projet. Cette documentation est complétée par les commentaires présents dans les différents fichiers sources des programmes.
+La vidéo de démonstration du projet est disponible sur ce lien Youtube : https://www.youtube.com/watch?v=5IEbjQ4kYt0
